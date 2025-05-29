@@ -38,7 +38,7 @@ const ffmpegPath = os.platform() === 'win32' ? path.resolve('./ffmpeg.exe') : 'f
 const ytDlpPath = path.join(cwd(), getYtDlpFileName())
 
 async function getVideoInfo(url) {
-  const { stdout } = await execFileAsync(ytDlpPath, ['-j', url]);
+  const { stdout } = await execFileAsync(ytDlpPath, ['-j',  '--cookies', 'cookies.txt', url]);
   return JSON.parse(stdout);
 }
 
@@ -64,6 +64,7 @@ app.get('/download', async (req, res) => {
 
   const args = [
     '-o', outputPath,
+     '--cookies', 'cookies.txt',
     '--no-playlist',
     '--restrict-filenames',
     '--quiet',
