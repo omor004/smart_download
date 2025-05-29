@@ -1,5 +1,5 @@
 import express from 'express';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import cors from 'cors';
 import path from 'path';
 import { cwd } from 'process';
@@ -253,5 +253,15 @@ app.get('/formats', (req, res) => {
 app.listen(PORT, async () => {
   await downloadYtDlpForCurrentOS()
   downloadAndExtractFfmpeg()
+  const ytdlpV = spawn(ytDlpPath, ['--version']);
+  const ffmpegV = spawn(ffmpegPath, ['-version']);
+
+  ytdlpV.stdout.on('data', (data) => {
+    console.log(`📦 yt-dlp version: ${data.toString().trim()}`);
+  });
+
+  ffmpegV.stdout.on('data', (data) => {
+    console.log(`🎞️ ffmpeg version: ${data.toString().split('\n')[0]}`);
+  });
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });
