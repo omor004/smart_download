@@ -8,7 +8,6 @@ import * as tar from 'tar';
 import { cwd } from 'process';
 import { pipeline } from 'stream/promises';
 import unzipper from 'unzipper';
-import lzma from 'lzma-native'; // ✅ Native decompressor
 
 const ROOT_DIR = cwd();
 const TEMP_DIR = path.join(ROOT_DIR, 'ffmpeg_tmp');
@@ -67,15 +66,7 @@ export async function downloadAndExtractFfmpeg() {
 
   // Extract
   if (fileName.endsWith('.tar.xz')) {
-    const tarPath = archivePath.replace(/\.xz$/, '');
-    // ✅ Decompress .xz → .tar
-    await pipeline(
-      fs.createReadStream(archivePath),
-      lzma.createDecompressor(),
-      fs.createWriteStream(tarPath)
-    );
-    // ✅ Extract .tar
-    await tar.x({ file: tarPath, cwd: TEMP_DIR });
+    await tar.x({ file: archivePath, cwd: TEMP_DIR });
   } else if (fileName.endsWith('.zip')) {
     await fs.createReadStream(archivePath).pipe(unzipper.Extract({ path: TEMP_DIR })).promise();
   }

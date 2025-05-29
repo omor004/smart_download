@@ -36,6 +36,7 @@ build/Release
 node_modules/
 jspm_packages/
 
+
 # Typescript v1 declaration files
 typings/
 
@@ -50,6 +51,7 @@ typings/
 
 # Output of 'npm pack'
 *.tgz
+*.exe
 
 # Yarn Integrity file
 .yarn-integrity
