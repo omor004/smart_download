@@ -128,8 +128,8 @@ app.get('/download', async (req, res) => {
 
 
 
-app.get('/formats', (req, res) => {
-  const videoUrl = req.query.url;
+app.post('/formats', (req, res) => {
+  const videoUrl = req.body.url;
 
   if (!videoUrl) {
     return res.status(400).json({ error: 'Missing video URL' });

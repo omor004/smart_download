@@ -151,6 +151,10 @@
     .hidden {
       display: none !important;
     }
+
+    #url{
+      max-width: 80%;
+    }
   </style>
 </head>
 
@@ -203,16 +207,21 @@
       videoUrl = urlInput;
       showLoader('Getting formats…');
 
-      fetch(`/formats?url=${encodeURIComponent(urlInput)}`)
+      fetch('/formats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput })
+      })
         .then(res => res.json())
         .then(data => {
           allFormats = data.formats || [];
           showMeta(data);
           filterResults();
-          console.log(allFormats)
+          console.log(allFormats);
         })
         .catch(() => alert('Failed to fetch formats'))
         .finally(() => hideLoader());
+
     }
 
     function showMeta(data) {
