@@ -137,7 +137,7 @@ app.post('/formats', (req, res) => {
   }
 
   const getFormats = (title, description, thumbnail) => {
-    execFile(ytDlpPath, ['-F', videoUrl], (error, stdout, stderr) => {
+    execFile(ytDlpPath, ['-F',  '--cookies', 'cookies.txt', videoUrl], (error, stdout, stderr) => {
       if (error) {
         return res.status(500).json({ error: stderr || error.message });
       }
@@ -221,11 +221,11 @@ app.post('/formats', (req, res) => {
     });
   };
 
-  execFile(ytDlpPath, ['--no-playlist', '--print', '%(title)s\n%(description)s\n%(thumbnail)s', videoUrl], (errMeta, metaOut) => {
+  execFile(ytDlpPath, ['--no-playlist', '--cookies', 'cookies.txt', '--print', '%(title)s\n%(description)s\n%(thumbnail)s', videoUrl], (errMeta, metaOut) => {
     const lines = metaOut ? metaOut.trim().split('\n') : [];
 
     if (errMeta || lines.length < 3 || !lines[2].startsWith('http')) {
-      execFile(ytDlpPath, ['-j', videoUrl], (jsonErr, jsonOut) => {
+      execFile(ytDlpPath, ['-j',  '--cookies', 'cookies.txt', videoUrl], (jsonErr, jsonOut) => {
         if (jsonErr) {
           return res.status(500).json({ error: jsonErr.message });
         }
