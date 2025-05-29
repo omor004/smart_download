@@ -34,16 +34,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(cwd(), 'public', 'index.html'));
 });
 
-
-if (os.platform() === "linux") {
-  execFile('sudo', ['apt-get', 'install', 'ffmpeg', '-y'], (error, stdout, stderr) => {
-    if (error) {
-      console.error("❌ Failed to install ffmpeg and yt-dlp:", stderr || error.message);
-    } else {
-      console.log("✅ ffmpeg and yt-dlp installed successfully");
-    }
-  });
-}
 const ffmpegPath = os.platform() === 'win32' ? path.resolve('./ffmpeg.exe') : 'ffmpeg';
 const ytDlpPath = path.join(cwd(), getYtDlpFileName())
 
