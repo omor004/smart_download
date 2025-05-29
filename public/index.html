@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Video Downloader</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #7dd3fc;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+    }
+
+    input,
+    select,
+    button {
+      padding: 0.7rem 1rem;
+      margin: 0.5rem;
+      font-size: 1rem;
+      border-radius: 1rem;
+      border: none;
+      background: #1e293b;
+      color: #f1f5f9;
+      transition: all 0.3s;
+    }
+
+    input::placeholder {
+      color: #94a3b8;
+    }
+
+    button {
+      background: #38bdf8;
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: #0ea5e9;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    #videoMeta {
+      max-width: 700px;
+      text-align: center;
+      margin: 2rem 0;
+    }
+
+    #videoThumb {
+      max-width: 100%;
+      border-radius: 1rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      margin-bottom: 1rem;
+    }
+
+    #videoTitle {
+      color: #7dd3fc;
+      margin: 0.5rem 0;
+      font-size: 1.25rem;
+    }
+
+    #videoDesc {
+      color: #cbd5e1;
+      font-size: 0.95rem;
+    }
+
+    .formats {
+      margin-top: 1rem;
+      width: 100%;
+      max-width: 700px;
+    }
+
+    .formats div {
+      background: #1e293b;
+      margin: 0.5rem 0;
+      padding: 1rem;
+      border-radius: 1rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: transform 0.2s;
+    }
+
+    .formats div:hover {
+      transform: scale(1.02);
+    }
+
+    .popup-loader {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #7dd3fc;
+      padding: 1rem 1.5rem;
+      border-radius: 1rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-weight: bold;
+      animation: fadeIn 0.3s ease-out;
+      z-index: 999;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid #38bdf8;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.95);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+      }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Smart Video Downloader</h1>
+
+  <div class="controls">
+    <input type="text" id="url" placeholder="Enter video URL" size="45">
+    <select id="mode" onchange="filterResults()">
+      <option selected value="both">Video with Audio</option>
+      <option value="video">Video Only</option>
+      <option value="audio">Audio Only</option>
+    </select>
+    <button onclick="fetchFormats()">Get Formats</button>
+  </div>
+
+  <!-- Metadata Section -->
+  <div id="videoMeta" class="hidden">
+    <img id="videoThumb" src="" alt="Thumbnail">
+    <h2 id="videoTitle"></h2>
+    <p id="videoDesc"></p>
+  </div>
+
+  <!-- Format List -->
+  <div class="formats" id="formats"></div>
+
+  <!-- Popup loader -->
+  <div id="popupLoader" class="popup-loader hidden">
+    <div class="spinner"></div>
+    <span id="loaderText">Loading...</span>
+  </div>
+
+  <script>
+    const loaderBox = document.getElementById('popupLoader');
+    const loaderText = document.getElementById('loaderText');
+    const showLoader = (text) => {
+      loaderText.textContent = text;
+      loaderBox.classList.remove('hidden');
+    };
+    const hideLoader = () => loaderBox.classList.add('hidden');
+
+    let videoUrl = '';
+    let allFormats = [];
+
+    function fetchFormats() {
+      const urlInput = document.getElementById('url').value.trim();
+      const mode = document.getElementById('mode').value;
+      if (!urlInput) return alert('Please enter a URL');
+
+      videoUrl = urlInput;
+      showLoader('Getting formats…');
+
+      fetch(`/formats?url=${encodeURIComponent(urlInput)}`)
+        .then(res => res.json())
+        .then(data => {
+          allFormats = data.formats || [];
+          showMeta(data);
+          filterResults();
+          console.log(allFormats)
+        })
+        .catch(() => alert('Failed to fetch formats'))
+        .finally(() => hideLoader());
+    }
+
+    function showMeta(data) {
+      const metaBox = document.getElementById('videoMeta');
+      const thumb = document.getElementById('videoThumb');
+      const title = document.getElementById('videoTitle');
+      const desc = document.getElementById('videoDesc');
+
+      thumb.src = data.thumbnail || '';
+      title.textContent = data.title || '';
+      desc.textContent = (data.description || '').slice(0, 250) + (data.description?.length > 250 ? '…' : '');
+      metaBox.classList.remove('hidden');
+    }
+
+    function filterResults() {
+      const mode = document.getElementById('mode').value;
+      const container = document.getElementById('formats');
+      container.innerHTML = '';
+
+      const isAudio = f => f.resolution.toLowerCase().includes('audio');
+      const isVideo = f => !isAudio(f);
+
+      const filtered = allFormats.filter(f => {
+        if (mode === 'audio') return isAudio(f);
+        if (mode === 'video') return isVideo(f);
+        return isVideo(f); // for 'both', show videos (audio will be added automatically)
+      });
+
+      filtered.forEach(f => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <span><strong>${f.resolution}</strong> | ${f.extension} | ${f.size.mb}</span>
+          <button onclick="download('${f.code}')">Download</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function download(formatCode) {
+      const mode = document.getElementById('mode').value;
+      const params = new URLSearchParams({ url: videoUrl });
+
+      if (mode === 'audio') {
+        params.append('audio', formatCode);
+      } else if (mode === 'video') {
+        params.append('video', formatCode);
+      } else if (mode === 'both') {
+        params.append('video', formatCode);
+        params.append('audio', "bestaudio"); // default audio format
+      }
+
+      showLoader('Starting download…');
+
+      window.location.href = `/download?${params.toString()}`;
+      hideLoader();
+
+    }
+  </script>
+</body>
+
+</html>
