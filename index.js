@@ -9,6 +9,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import os from 'os';
 import { downloadAndExtractFfmpeg } from './src/utils/downloadFfmpeg.js';
+import { downloadAndExtractAria2c } from './src/utils/aria2.js';
 
 
 
@@ -27,18 +28,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(cwd(), 'public')));
 
-// Hardcoded path to yt-dlp.exe (Windows only)
+const ffmpegPath = os.platform() === 'win32' ? path.resolve('./ffmpeg.exe') : 'ffmpeg';
+const ariaPath = os.platform() === 'win32' ? path.resolve('./aria2c.exe') : 'aria2c';
+const ytDlpPath = path.join(cwd(), getYtDlpFileName())
+const cookies = path.resolve("./cookie.txt")
+const metadataArgs = [
+  '--cookies', cookies,
+  '--force-ipv4',
+  "--no-check-certificate"
 
+];
+
+const downloadArgs = [
+  '--cookies', cookies,
+  '--force-ipv4',
+  '-N', '16',
+  '--downloader', 'aria2c',
+  '--downloader-path', `aria2c:${ariaPath}`,
+  '--downloader-args', 'aria2c: -x 16 -k 1M'
+];
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(cwd(), 'public', 'index.html'));
 });
 
-const ffmpegPath = os.platform() === 'win32' ? path.resolve('./ffmpeg.exe') : 'ffmpeg';
-const ytDlpPath = path.join(cwd(), getYtDlpFileName())
 
 async function getVideoInfo(url) {
-  const { stdout } = await execFileAsync(ytDlpPath, ['-j',  '--cookies', 'cookies.txt', url]);
+  const { stdout } = await execFileAsync(ytDlpPath, ['-j', '--cookies', 'cookies.txt', url]);
   return JSON.parse(stdout);
 }
 
@@ -64,7 +80,7 @@ app.get('/download', async (req, res) => {
 
   const args = [
     '-o', outputPath,
-     '--cookies', 'cookies.txt',
+    '--cookies', 'cookies.txt',
     '--no-playlist',
     '--restrict-filenames',
     '--quiet',
@@ -131,20 +147,22 @@ app.get('/download', async (req, res) => {
 
 app.post('/formats', (req, res) => {
   const videoUrl = req.body.url;
-
   if (!videoUrl) {
     return res.status(400).json({ error: 'Missing video URL' });
   }
 
+  // Separated args
+
+
   const getFormats = (title, description, thumbnail) => {
-    execFile(ytDlpPath, ['-F',  '--cookies', 'cookies.txt', videoUrl], (error, stdout, stderr) => {
-      if (error) {
+    execFile(ytDlpPath, ['-F', ...metadataArgs, videoUrl], (error, stdout, stderr) => {
+      if (error || stderr) {
         return res.status(500).json({ error: stderr || error.message });
       }
 
       const lines = stdout.split('\n');
       const formatLines = lines.filter(line => /^\S+\s+\S+\s+\S+/.test(line.trim()));
-
+console.log(formatLines)
       const formats = formatLines.map(line => {
         const parts = line.trim().split(/\s+/);
         const code = parts[0];
@@ -152,8 +170,8 @@ app.post('/formats', (req, res) => {
         const resolution = parts[2];
         const rawNote = parts.slice(3).join(' ');
 
-        if (rawNote.includes('m3u8')) return null;
-        if (rawNote.toLowerCase().includes('watermarked')) return null;
+        if (rawNote.includes('m3u8') || rawNote.toLowerCase().includes('watermarked')) return null;
+        if (!["mp4", "mp3", "m4a"].includes(extension)) return null;
 
         const sizeMatch = rawNote.match(/(\d+(?:\.\d+)?)(KiB|MiB|GiB)/);
         let sizeBytes = null;
@@ -164,19 +182,14 @@ app.post('/formats', (req, res) => {
           sizeBytes = value * multipliers[unit];
         }
 
-        const size = sizeBytes
-          ? {
-            byte: `${Math.round(sizeBytes)} B`,
-            kb: `${(sizeBytes / 1024).toFixed(1)} KB`,
-            mb: `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`,
-            gb: `${(sizeBytes / 1024 / 1024 / 1024).toFixed(4)} GB`
-          }
-          : null;
+        if (!sizeBytes) return null;
 
-        if (size === null) return
-
-        if (!["mp4", "mp3", "m4a"].includes(extension)) return;
-
+        const size = {
+          byte: `${Math.round(sizeBytes)} B`,
+          kb: `${(sizeBytes / 1024).toFixed(1)} KB`,
+          mb: `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`,
+          gb: `${(sizeBytes / 1024 / 1024 / 1024).toFixed(4)} GB`
+        };
 
         const bitrateMatch = rawNote.match(/(\d+k)/);
         const codecMatch = rawNote.match(/([a-z0-9]+\.[a-z0-9]+(?:, [a-z0-9\.]+)*)/i);
@@ -188,12 +201,9 @@ app.post('/formats', (req, res) => {
           size,
           bitrate: bitrateMatch ? bitrateMatch[1] : null,
           codecs: codecMatch ? codecMatch[1] : null,
-          rawNote,
-
+          rawNote
         };
       }).filter(Boolean);
-
-
 
       const isPopularResolution = res => {
         const standard = ['144', '240', '270', '288', '320', '360', '384', '480', '512', '540', '576', '640', '720', '800', '900', '960', '1024', '1080', '1200', '1280', '1440', '1600', '1800', '1920', '2048', '2160', '2400', '2560', '2880', '3200', '3840', '4096', '4320', '5120', '7680'];
@@ -210,7 +220,6 @@ app.post('/formats', (req, res) => {
         index === self.findIndex(f => f.resolution === item.resolution)
       ).reverse();
 
-
       res.json({
         title,
         description,
@@ -221,13 +230,15 @@ app.post('/formats', (req, res) => {
     });
   };
 
-  execFile(ytDlpPath, ['--no-playlist', '--cookies', 'cookies.txt', '--print', '%(title)s\n%(description)s\n%(thumbnail)s', videoUrl], (errMeta, metaOut) => {
+  // Try simple metadata first
+  execFile(ytDlpPath, ['--no-playlist', ...metadataArgs, '--print', '%(title)s\n%(description)s\n%(thumbnail)s', videoUrl], (errMeta, metaOut, metaErr) => {
     const lines = metaOut ? metaOut.trim().split('\n') : [];
 
-    if (errMeta || lines.length < 3 || !lines[2].startsWith('http')) {
-      execFile(ytDlpPath, ['-j',  '--cookies', 'cookies.txt', videoUrl], (jsonErr, jsonOut) => {
-        if (jsonErr) {
-          return res.status(500).json({ error: jsonErr.message });
+    if (errMeta || metaErr || lines.length < 3 || !lines[2].startsWith('http')) {
+      // Fallback to JSON
+      execFile(ytDlpPath, ['-j', ...metadataArgs, videoUrl], (jsonErr, jsonOut, jsonStderr) => {
+        if (jsonErr || jsonStderr) {
+          return res.status(500).json({ error: jsonStderr || jsonErr.message });
         }
 
         try {
@@ -235,6 +246,7 @@ app.post('/formats', (req, res) => {
           const { title, description, thumbnail } = json;
           getFormats(title, description, thumbnail);
         } catch (e) {
+          console.error('JSON parse failed:', jsonOut);
           return res.status(500).json({ error: 'Failed to parse metadata' });
         }
       });
@@ -252,10 +264,13 @@ app.post('/formats', (req, res) => {
 
 // Start server
 app.listen(PORT, async () => {
-  await downloadYtDlpForCurrentOS()
-  downloadAndExtractFfmpeg()
+  await downloadYtDlpForCurrentOS();
+  await downloadAndExtractFfmpeg();
+  await downloadAndExtractAria2c();
+
   const ytdlpV = spawn(ytDlpPath, ['--version']);
   const ffmpegV = spawn(ffmpegPath, ['-version']);
+  const aria2V = spawn(ariaPath, ['-v']);
 
   ytdlpV.stdout.on('data', (data) => {
     console.log(`📦 yt-dlp version: ${data.toString().trim()}`);
@@ -264,5 +279,11 @@ app.listen(PORT, async () => {
   ffmpegV.stdout.on('data', (data) => {
     console.log(`🎞️ ffmpeg version: ${data.toString().split('\n')[0]}`);
   });
+
+  aria2V.stdout.on('data', (data) => {
+    console.log(`📡 aria2c version: ${data.toString().split('\n')[0]}`);
+  });
+
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });
+
