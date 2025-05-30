@@ -28,9 +28,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(cwd(), 'public')));
 
-const ffmpegPath = os.platform() === 'win32' ? path.resolve('./ffmpeg.exe') : 'ffmpeg';
+const ffmpegPath = os.platform() === 'win32' ? path.resolve('./ffmpeg.exe') : path.resolve("./ffmpeg");
 const ariaPath = os.platform() === 'win32' ? path.resolve('./aria2c.exe') : path.resolve('./aria2c');
-const ytDlpPath = path.join(cwd(), getYtDlpFileName())
+const ytDlpPath = path.resolve(getYtDlpFileName())
 const cookies = path.resolve("./cookie.txt")
 const metadataArgs = [
   '--cookies', cookies,
