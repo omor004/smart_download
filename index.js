@@ -162,7 +162,7 @@ app.post('/formats', (req, res) => {
 
       const lines = stdout.split('\n');
       const formatLines = lines.filter(line => /^\S+\s+\S+\s+\S+/.test(line.trim()));
-console.log(formatLines)
+
       const formats = formatLines.map(line => {
         const parts = line.trim().split(/\s+/);
         const code = parts[0];
