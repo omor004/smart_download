@@ -259,9 +259,6 @@ app.post('/formats', (req, res) => {
 
 
 
-
-
-
 // Start server
 app.listen(PORT, async () => {
   await downloadYtDlpForCurrentOS();
