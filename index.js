@@ -35,8 +35,8 @@ const cookies = path.resolve("./cookie.txt")
 const metadataArgs = [
   '--cookies', cookies,
   '--force-ipv4',
-  "--no-check-certificate"
-
+  "--no-check-certificate",
+  '--user-agent', "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 ];
 
 const downloadArgs = [
@@ -54,7 +54,7 @@ app.get('/', (req, res) => {
 
 
 async function getVideoInfo(url) {
-  const { stdout } = await execFileAsync(ytDlpPath, ['-j', '--cookies', 'cookies.txt', url]);
+  const { stdout } = await execFileAsync(ytDlpPath, ['-j', ...metadataArgs, url]);
   return JSON.parse(stdout);
 }
 
@@ -80,11 +80,13 @@ app.get('/download', async (req, res) => {
 
   const args = [
     '-o', outputPath,
-    '--cookies', 'cookies.txt',
     '--no-playlist',
     '--restrict-filenames',
     '--quiet',
-    '--ffmpeg-location', ffmpegPath
+    '--ffmpeg-location', ffmpegPath,
+    '--cookies', cookies,
+    '--force-ipv4',
+    '-N', '16',
   ];
 
   let formatCode, quality;
@@ -159,6 +161,7 @@ app.post('/formats', (req, res) => {
       if (error || stderr) {
         return res.status(500).json({ error: stderr || error.message });
       }
+      console.log('3s')
 
       const lines = stdout.split('\n');
       const formatLines = lines.filter(line => /^\S+\s+\S+\s+\S+/.test(line.trim()));
@@ -229,11 +232,11 @@ app.post('/formats', (req, res) => {
       });
     });
   };
-
+console.log("1s")
   // Try simple metadata first
   execFile(ytDlpPath, ['--no-playlist', ...metadataArgs, '--print', '%(title)s\n%(description)s\n%(thumbnail)s', videoUrl], (errMeta, metaOut, metaErr) => {
     const lines = metaOut ? metaOut.trim().split('\n') : [];
-
+console.log(errMeta,metaOut, metaErr)
     if (errMeta || metaErr || lines.length < 3 || !lines[2].startsWith('http')) {
       // Fallback to JSON
       execFile(ytDlpPath, ['-j', ...metadataArgs, videoUrl], (jsonErr, jsonOut, jsonStderr) => {
