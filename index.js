@@ -29,7 +29,7 @@ app.use(express.json());
 app.use(express.static(path.join(cwd(), 'public')));
 
 const ffmpegPath = os.platform() === 'win32' ? path.resolve('./ffmpeg.exe') : 'ffmpeg';
-const ariaPath = os.platform() === 'win32' ? path.resolve('./aria2c.exe') : 'aria2c';
+const ariaPath = os.platform() === 'win32' ? path.resolve('./aria2c.exe') : path.resolve('./aria2c');
 const ytDlpPath = path.join(cwd(), getYtDlpFileName())
 const cookies = path.resolve("./cookie.txt")
 const metadataArgs = [
