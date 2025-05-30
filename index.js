@@ -268,6 +268,10 @@ app.listen(PORT, async () => {
   await downloadAndExtractFfmpeg();
   await downloadAndExtractAria2c();
 
+  console.log(ytDlpPath)
+  console.log(ffmpegPath)
+  console.log(ariaPath)
+
   const ytdlpV = spawn(ytDlpPath, ['--version']);
   const ffmpegV = spawn(ffmpegPath, ['-version']);
   const aria2V = spawn(ariaPath, ['-v']);
